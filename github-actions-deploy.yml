@@ -1,0 +1,44 @@
+# Обновляет расписание с voenmeh.ru и выкладывает сайт на GitHub Pages.
+# Запускается: раз в неделю (пн утром), при каждом изменении файлов и вручную (Actions → Run workflow).
+# Для публичного репозитория GitHub Actions и Pages бесплатны.
+name: Обновить расписание и выложить сайт
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"   # понедельник, 06:17 по Москве
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Скачивает свежий XML (если сайт вуза недоступен — берёт data/source.xml из репозитория)
+      # и собирает data/schedule.js и календари ics/
+      - run: python update_schedule.py
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

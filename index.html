@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Расписание Военмеха</title>
+<meta name="description" content="Удобное расписание занятий БГТУ «Военмех»: поиск по группам и преподавателям, следующая пара, подписка на календарь.">
+<meta name="theme-color" content="#F7F7F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111113" media="(prefers-color-scheme: dark)">
+<script>try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Расписание">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F7F5; --card: #FFFFFF; --text: #18181B; --text2: #52525B; --muted: #71717A;
+    --line: #E4E4E7; --accent: #1F4FD8; --accent-soft: #EEF2FF; --strong: #18181B; --on-strong: #FFFFFF;
+    --lek: #1F4FD8; --pr: #0F8A5F; --lab: #B45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #111113; --card: #1B1B1F; --text: #F4F4F5; --text2: #B4B4BB; --muted: #8E8E96;
+            --line: #2C2C31; --accent: #7EA2FF; --accent-soft: #1E2540; --strong: #F4F4F5; --on-strong: #111113;
+            --lek: #7EA2FF; --pr: #4CD39B; --lab: #F2B05E; }
+  }
+  :root[data-theme="dark"] { --bg: #111113; --card: #1B1B1F; --text: #F4F4F5; --text2: #B4B4BB; --muted: #8E8E96;
+            --line: #2C2C31; --accent: #7EA2FF; --accent-soft: #1E2540; --strong: #F4F4F5; --on-strong: #111113;
+            --lek: #7EA2FF; --pr: #4CD39B; --lab: #F2B05E; }
+  :root { color-scheme: light; } :root[data-theme="dark"] { color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); }
+  body { margin: 0; font: 16px/1.4 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
+  button { font: inherit; color: inherit; }
+  .app { max-width: 560px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom)); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "hero" "week" "actions"; }
+  .a-head { grid-area: head; } .a-hero { grid-area: hero; } .a-week { grid-area: week; } .a-actions { grid-area: actions; }
+  /* компьютер: две колонки, всё по центру экрана */
+  @media (min-width: 960px) {
+    .app { max-width: 1040px; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding-top: 40px; padding-bottom: 32px; }
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); column-gap: 48px; align-items: start;
+              grid-template-areas: "head week" "hero week" "actions week"; grid-template-rows: auto auto 1fr; }
+    .a-week { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 6px 20px 12px; }
+    .a-week .weeknav { margin-top: 12px; }
+    .a-week .day { background: var(--bg); }
+    .a-week .day.on { background: var(--strong); }
+    .hero h2 { font-size: 28px; }
+  }
+
+  /* шапка */
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; }
+  .who { all: unset; cursor: pointer; display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 0; }
+  .who .name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who:focus-visible, .icon-btn:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .icon-btn { all: unset; cursor: pointer; flex: none; width: 44px; height: 44px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+  .tools { display: flex; align-items: center; gap: 8px; flex: none; }
+  .theme { all: unset; cursor: pointer; position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); flex: none; }
+  .theme::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 12px; background: var(--strong); transition: transform .2s ease; }
+  .theme.dark::after { transform: translateX(24px); }
+  .theme svg { position: absolute; top: 8px; z-index: 1; pointer-events: none; }
+  .theme .sun { left: 8px; color: var(--on-strong); } .theme .moon { right: 8px; color: var(--muted); }
+  .theme.dark .sun { color: var(--muted); } .theme.dark .moon { color: var(--on-strong); }
+  .theme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sub { font-size: 14px; color: var(--text2); margin-top: 2px; }
+  .sub b { color: var(--accent); font-weight: 600; }
+  .kind { font-size: 13px; color: var(--muted); }
+
+  /* следующая пара */
+  .hero { margin-top: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px; }
+  .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .eyebrow { font-size: 13px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+  .pill { font-size: 13px; font-weight: 600; background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .hero h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 12px 0 0; line-height: 1.2; overflow-wrap: anywhere; }
+  .hero .who2 { font-size: 15px; color: var(--text2); margin-top: 4px; }
+  .facts { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+  .facts .l { font-size: 12px; color: var(--muted); } .facts .v { font-size: 17px; font-weight: 600; }
+  .progress { height: 4px; background: var(--line); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+  .progress div { height: 4px; background: var(--accent); }
+
+  /* дни */
+  .weeknav { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .weeknav .t { font-size: 14px; color: var(--text2); }
+  .weeknav .arrows { display: flex; gap: 6px; }
+  .arrow { all: unset; cursor: pointer; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
+  .arrow:hover { background: var(--card); }
+  .days { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+  .day { all: unset; cursor: pointer; min-height: 56px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+         background: var(--card); border: 1px solid var(--line); color: var(--text2); position: relative; }
+  .day .dw { font-size: 12px; } .day .dn { font-size: 16px; font-weight: 600; }
+  .day.on { background: var(--strong); color: var(--on-strong); border-color: var(--strong); }
+  .day.today:not(.on) .dn { color: var(--accent); }
+  .day.free .dn { opacity: .45; }
+
+  /* список пар */
+  .list { margin-top: 8px; }
+  .row { display: flex; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+  .row.past { opacity: .45; }
+  .row.now { background: var(--accent-soft); margin: 0 -12px; padding: 13px 12px; border-radius: 14px; border-bottom-color: transparent; }
+  .row .tm { width: 52px; flex: none; } .row .tm b { display: block; font-size: 15px; font-weight: 600; } .row .tm span { font-size: 13px; color: var(--muted); }
+  .row .bd { flex-grow: 1; min-width: 0; }
+  .row .s { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+  .row .m { font-size: 13px; color: var(--text2); margin-top: 3px; }
+  .row .m a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; cursor: pointer; }
+  .tp { font-weight: 600; } .tp.лек { color: var(--lek); } .tp.пр { color: var(--pr); } .tp.лаб { color: var(--lab); }
+  .edit { all: unset; cursor: pointer; flex: none; align-self: center; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+  .edit:hover { background: var(--card); color: var(--accent); }
+  .a-week .edit:hover { background: var(--bg); }
+  .edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .edit.has { color: var(--lab); }
+  .orig { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .rename { display: flex; gap: 8px; margin-top: 6px; }
+  .row.hid { opacity: .5; } .row.hid .s { text-decoration: line-through; }
+  .nb { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--lab); background: color-mix(in srgb, var(--lab) 14%, transparent); padding: 3px 8px; border-radius: 999px; }
+  .hero .nb { margin-top: 12px; font-size: 13px; }
+  .tl { list-style: none; margin: 8px 0 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+        border-left: 3px solid var(--lab); background: color-mix(in srgb, var(--lab) 8%, transparent); border-radius: 0 10px 10px 0; }
+  .tl li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.35; }
+  .tl input { width: 17px; height: 17px; margin: 1px 0 0; flex: none; accent-color: var(--lab); cursor: pointer; }
+  .tl label { cursor: pointer; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .hero .tl { margin-top: 14px; }
+  .extras { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin-top: 18px; font-size: 13px; }
+  .link { all: unset; cursor: pointer; color: var(--text2); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  .link:hover { color: var(--accent); }
+  /* окно предмета */
+  .meta2 { color: var(--text2); font-size: 14px; margin: 6px 0 14px; }
+  .sec { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin: 16px 0 6px; }
+  .task { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .task input[type=checkbox] { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); flex: none; cursor: pointer; }
+  .task label { flex-grow: 1; min-width: 0; cursor: pointer; font-size: 15px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .task label small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .task.done label > span { text-decoration: line-through; color: var(--muted); }
+  .task .x { all: unset; cursor: pointer; flex: none; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+  .task .x:hover { background: var(--bg); color: var(--text); }
+  .add, .rename { display: flex; gap: 8px; margin-top: 10px; }
+  .add input, .rename input { all: unset; flex-grow: 1; min-width: 0; box-sizing: border-box; min-height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-size: 15px; }
+  .add input:focus, .rename input:focus { border-color: var(--accent); }
+  .sheet .add .btn, .sheet .rename .btn { min-height: 46px; flex: none; width: auto; min-width: 124px; margin-top: 0; padding: 0 18px; }
+  .hint2 { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .noteempty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  .empty { text-align: center; color: var(--muted); padding: 36px 10px; }
+  .empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+
+  /* кнопки */
+  .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .btn { all: unset; cursor: pointer; box-sizing: border-box; min-height: 50px; border-radius: 14px; font-weight: 600; font-size: 15px;
+         display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; text-align: center; }
+  .btn-main { background: var(--strong); color: var(--on-strong); }
+  .btn-sec { background: var(--card); border: 1px solid var(--line); color: var(--text); }
+
+  footer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 28px; line-height: 1.6; }
+  footer a { color: inherit; }
+
+  /* поиск: строка на месте шапки + выпадающий список */
+  .search { position: relative; display: none; z-index: 30; }
+  .search.open { display: block; }
+  .searching .top { display: none; }
+  .searching .sub { visibility: hidden; }
+  .search-head { display: flex; gap: 8px; align-items: center; min-height: 52px; }
+  .field { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--accent); border-radius: 14px; padding: 0 14px; min-height: 48px; }
+  .field input { all: unset; flex-grow: 1; font-size: 16px; min-width: 0; }
+  .field input::placeholder { color: var(--muted); }
+  .cancel { all: unset; flex: none; cursor: pointer; color: var(--accent); font-weight: 600; padding: 0 4px; min-height: 44px; display: flex; align-items: center; }
+  .results { position: absolute; left: 0; right: 0; top: calc(100% + 6px); background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+             box-shadow: 0 12px 32px rgba(0,0,0,.14); max-height: min(60vh, 440px); overflow-y: auto; padding: 4px 16px 8px; }
+  .results h3 { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin: 12px 0 2px; }
+  .res { all: unset; cursor: pointer; box-sizing: border-box; width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); min-height: 46px; }
+  .res:last-of-type { border-bottom: 0; }
+  .res .n { font-size: 16px; font-weight: 600; } .res .k { font-size: 13px; color: var(--muted); }
+  .res.active .n, .res:hover .n { color: var(--accent); }
+  .hint { color: var(--text2); font-size: 14px; margin: 12px 0 6px; line-height: 1.5; }
+
+  /* нижние окна */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
+  .sheet-bg.open { display: flex; }
+  .sheet { overflow-x: hidden; background: var(--card); width: 100%; max-width: 520px; border-radius: 22px 22px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); max-height: 90vh; overflow-y: auto; }
+  @media (min-width: 600px) { .sheet-bg { align-items: center; } .sheet { border-radius: 22px; } }
+  .sheet h4 { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+  .sheet p { margin: 6px 0 16px; color: var(--text2); font-size: 14px; }
+  .opt { all: unset; cursor: pointer; box-sizing: border-box; display: block; width: 100%; margin-bottom: 8px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); text-decoration: none; color: var(--text); }
+  .opt b { display: block; font-size: 15px; } .opt small { color: var(--muted); font-size: 13px; }
+  .steps { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .steps li::before { content: counter(s); flex: none; width: 26px; height: 26px; border-radius: 13px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .steps svg { vertical-align: -4px; margin: 0 2px; }
+  .sheet .btn-sec { width: 100%; margin-top: 4px; }
+
+  .noscript { padding: 40px 20px; text-align: center; }
+</style>
+</head>
+<body>
+<noscript><div class="noscript">Для работы сайта нужен включённый JavaScript.</div></noscript>
+
+<div class="app" id="app"></div>
+
+<!-- поиск (вставляется в шапку при открытии) -->
+<div class="search" id="search" role="search">
+  <div class="search-head">
+    <label class="field">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Группа или фамилия преподавателя" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Поиск группы или преподавателя" aria-controls="results">
+    </label>
+    <button class="cancel" id="cancelSearch">Отмена</button>
+  </div>
+  <div class="results" id="results" role="listbox"></div>
+</div>
+
+<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet" role="dialog"></div></div>
+
+<script src="data/schedule.js"></script>
+<script>
+"use strict";
+// ============================================================ настройки
+// Яндекс Метрика: создай счётчик на metrika.yandex.ru и впиши его номер сюда
+const METRIKA_ID = "";
+
+const S = window.SCHEDULE;
+const LESSON_MIN = S.lessonMin || 90;
+const SEMESTER_END = S.semesterEnd || "2026-12-27";
+
+if (METRIKA_ID && location.protocol.startsWith("http")) {
+  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();
+   k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+  ym(+METRIKA_ID, "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+}
+const goal = (name, params) => { try { if (window.ym && METRIKA_ID) ym(+METRIKA_ID, "reachGoal", name, params); } catch (_) {} };
+
+// ============================================================ данные
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const TYPE = { "лек": "Лекция", "пр": "Практика", "лаб": "Лабораторная" };
+const DOW_SHORT = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const DOW_IN = ["в понедельник","во вторник","в среду","в четверг","в пятницу","в субботу","в воскресенье"];
+
+const groupsByNum = new Map(S.groups.map(g => [g.n, g]));
+const lecturerLessons = new Map();       // id -> Map(slot -> пара с группами)
+for (const g of S.groups) for (const l of g.l) for (const pid of l.p) {
+  if (!lecturerLessons.has(pid)) lecturerLessons.set(pid, new Map());
+  const slots = lecturerLessons.get(pid), key = [l.d, l.w, l.t, l.s, l.r].join("|");
+  if (!slots.has(key)) slots.set(key, { ...l, groups: [] });
+  slots.get(key).groups.push(g.n);
+}
+
+function entity(type, id) {
+  if (type === "group" && groupsByNum.has(id)) {
+    const g = groupsByNum.get(id);
+    return { type, id, title: g.n, icsId: g.id, lessons: g.l };
+  }
+  if (type === "lecturer" && lecturerLessons.has(id)) {
+    const lessons = [...lecturerLessons.get(id).values()].sort((a, b) => a.d - b.d || a.t.localeCompare(b.t));
+    return { type, id, title: S.lecturers[id], icsId: id, lessons };
+  }
+  return null;
+}
+
+// ============================================================ даты и чётность
+const DAY = 86400000;
+const [sy, sm, sd] = S.start.split("-").map(Number);
+const semStart = new Date(sy, sm - 1, sd);
+const monday0 = new Date(sy, sm - 1, sd - ((semStart.getDay() + 6) % 7));
+const [ey, em, ed] = SEMESTER_END.split("-").map(Number);
+const semEnd = new Date(ey, em - 1, ed);
+
+const dayIdx = d => (d.getDay() + 6) % 7;
+const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const sameDay = (a, b) => sod(a).getTime() === sod(b).getTime();
+function weekCode(d) {
+  const n = Math.floor(Math.round((sod(d) - monday0) / DAY) / 7);
+  return ((n % S.weekCount) + S.weekCount) % S.weekCount + 1;
+}
+const weekName = c => c === 1 ? "нечётная" : "чётная";
+const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const fmtMin = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+const startT = t => fmtMin(toMin(t));
+const endT = t => fmtMin(toMin(t) + LESSON_MIN);
+const fmtDate = d => { const s = d.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" }); return s[0].toUpperCase() + s.slice(1); };
+const inSemester = d => sod(d) >= semStart && sod(d) <= semEnd;
+
+// ---------- заметки и скрытые пары: хранятся только в этом браузере (localStorage)
+const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch (_) { return def; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
+let notes = load("notes", {});      // { "Предмет": [{ id, text, done, at }] }
+let hidden = load("hidden", {});    // { "group:09С33": ["пара|ключ", "s:Предмет"] }
+let renames = load("renames", {}); // { "ТАУ": "Теория автоматического управления" }
+let showHidden = false;
+const nameOf = subj => renames[subj] || subj;
+const slotKey = l => [l.d, l.w, l.t, l.s].join("|");
+const hidKey = () => `${cur.type}:${cur.id}`;
+const hidList = () => hidden[hidKey()] || [];
+const isHidden = l => cur && (hidList().includes(slotKey(l)) || hidList().includes("s:" + l.s));
+const openTasks = subj => (notes[subj] || []).filter(n => !n.done).length;
+const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; };
+const tasksHTML = subj => {
+  const open = (notes[subj] || []).filter(n => !n.done);
+  return open.length ? `<ul class="tl" aria-label="Задачи по предмету">${open.map(n =>
+    `<li><input type="checkbox" id="q${n.id}" data-subj="${esc(subj)}" data-nid="${n.id}" aria-label="Отметить выполненной"><label for="q${n.id}">${esc(n.text)}</label></li>`).join("")}</ul>` : "";
+};
+const tasksLabel = n => `${n} ${plural(n, "задача", "задачи", "задач")}`;
+
+function lessonsOn(ent, d, withHidden = false) {
+  if (!inSemester(d)) return [];
+  return ent.lessons.filter(l => l.d === dayIdx(d) && l.w === weekCode(d) && (withHidden || !isHidden(l)));
+}
+
+function duration(min) {
+  if (min < 60) return `${min} мин`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} ч ${m} мин` : `${h} ч`;
+}
+
+// ближайшая (или идущая сейчас) пара в пределах 3 недель
+function upcoming(ent, now) {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  for (let i = 0; i < 21; i++) {
+    const d = addDays(sod(now), i);
+    for (const l of lessonsOn(ent, d)) {
+      const st = toMin(l.t), en = st + LESSON_MIN;
+      if (i === 0 && en <= nowMin) continue;
+      if (i === 0 && st <= nowMin) return { l, d, status: "now", left: en - nowMin, done: (nowMin - st) / LESSON_MIN };
+      let when;
+      if (i === 0) when = `через ${duration(st - nowMin)}`;
+      else if (i === 1) when = `завтра в ${startT(l.t)}`;
+      else if (i < 7) when = `${DOW_IN[dayIdx(d)]} в ${startT(l.t)}`;
+      else when = `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")} в ${startT(l.t)}`;
+      return { l, d, status: "next", when };
+    }
+  }
+  return null;
+}
+
+// ============================================================ состояние
+let cur = null;          // выбранная группа/преподаватель
+let selDay = null;       // выбранный день
+let recent = [];
+try { recent = JSON.parse(localStorage.getItem("recent") || "[]"); } catch (_) {}
+
+function select(type, id, opts = {}) {
+  const e = entity(type, id); if (!e) return false;
+  cur = e;
+  const today = sod(new Date());
+  selDay = opts.keepDay && selDay ? selDay : (dayIdx(today) === 6 ? addDays(today, 1) : today);
+  history.replaceState(null, "", `#${type === "group" ? "g" : "p"}=${encodeURIComponent(id)}`);
+  recent = [{ type, id }, ...recent.filter(r => !(r.type === type && r.id === id))].slice(0, 5);
+  try { localStorage.setItem("recent", JSON.stringify(recent)); } catch (_) {}
+  goal("open_" + type, { name: e.title });
+  closeSearch(); render(); window.scrollTo(0, 0);
+  return true;
+}
+
+// ============================================================ иконки
+const I = {
+  chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--muted)"><path d="M6 9l6 6 6-6"/></svg>',
+  search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+  left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
+  right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  cal: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  phone: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 9v6M9 12h6"/></svg>',
+  share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F7AF0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="значок Поделиться" role="img"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg>',
+  plusbox: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-label="значок плюса"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>',
+  pencil: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  pen: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  dots: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="значок меню"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+};
+
+// ============================================================ тема
+const darkMQ = matchMedia("(prefers-color-scheme: dark)");
+const isDark = () => (document.documentElement.dataset.theme || (darkMQ.matches ? "dark" : "light")) === "dark";
+function themeColorSync() {
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = isDark() ? "#111113" : "#F7F7F5"; m.removeAttribute("media"); });
+}
+function toggleTheme() {
+  const next = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch (_) {}
+  goal("theme_" + next); themeColorSync();
+  document.querySelectorAll(".theme").forEach(b => { b.classList.toggle("dark", next === "dark"); b.setAttribute("aria-checked", next === "dark"); });
+}
+darkMQ.addEventListener?.("change", () => { if (!document.documentElement.dataset.theme) render(); });
+const themeBtn = () => `<button class="theme${isDark() ? " dark" : ""}" id="themeBtn" role="switch" aria-checked="${isDark()}" aria-label="Тёмная тема">
+  <svg class="sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  <svg class="moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+</button>`;
+
+// ============================================================ главный экран
+function heroHTML() {
+  const u = upcoming(cur, new Date());
+  if (!u) {
+    const ended = new Date() > semEnd;
+    return `<section class="hero"><div class="eyebrow">${ended ? "Семестр закончился" : "Ближайших пар нет"}</div>
+      <h2>${ended ? "Отдыхай" : "Можно выдохнуть"}</h2>
+      <div class="who2">${ended ? "Расписание на новый семестр появится, когда его опубликует вуз." : "В ближайшие три недели занятий не найдено."}</div></section>`;
+  }
+  const l = u.l;
+  const who = cur.type === "group" ? l.p.map(p => S.lecturers[p]).join(", ") : "Группы: " + l.groups.join(", ");
+  return `<section class="hero" aria-live="polite">
+    <div class="hero-top">
+      <span class="eyebrow">${u.status === "now" ? "Сейчас идёт" : "Следующая пара"}</span>
+      <span class="pill">${u.status === "now" ? `ещё ${duration(u.left)}` : u.when}</span>
+    </div>
+    <h2>${esc(nameOf(l.s))}</h2>
+    <div class="who2">${[TYPE[l.k], esc(who)].filter(Boolean).join(" · ")}</div>
+    <div class="facts">
+      <div><div class="l">Время</div><div class="v">${startT(l.t)}–${endT(l.t)}</div></div>
+      <div><div class="l">Аудитория</div><div class="v">${l.r ? esc(l.r) : "—"}</div></div>
+    </div>
+    ${u.status === "now" ? `<div class="progress" aria-hidden="true"><div style="width:${Math.round(u.done * 100)}%"></div></div>` : ""}
+    ${tasksHTML(l.s)}
+  </section>`;
+}
+
+function render() { document.body.appendChild(searchEl); renderInner(); placeSearch(); }
+function renderInner() {
+  if (!cur) return renderWelcome();
+  const now = new Date(), today = sod(now);
+  const mon = addDays(selDay, -dayIdx(selDay));
+  const wc = weekCode(mon);
+  const thisMon = addDays(today, -dayIdx(today));
+  const weekLabel = mon.getTime() === thisMon.getTime() ? "Эта неделя" : mon.getTime() === addDays(thisMon, 7).getTime() ? "Следующая неделя" : `Неделя с ${mon.getDate()}.${String(mon.getMonth() + 1).padStart(2, "0")}`;
+
+  const days = [0,1,2,3,4,5].map(i => {
+    const d = addDays(mon, i), has = lessonsOn(cur, d).length > 0;
+    const cls = ["day", sameDay(d, selDay) && "on", sameDay(d, today) && "today", !has && "free"].filter(Boolean).join(" ");
+    return `<button class="${cls}" data-day="${i}" aria-pressed="${sameDay(d, selDay)}" aria-label="${fmtDate(d)}${has ? "" : ", пар нет"}"><span class="dw">${DOW_SHORT[i]}</span><span class="dn">${d.getDate()}</span></button>`;
+  }).join("");
+
+  const nowMin = now.getHours() * 60 + now.getMinutes(), isToday = sameDay(selDay, today);
+  const items = lessonsOn(cur, selDay, showHidden);
+  window._items = items;
+  const list = items.length ? items.map((l, li) => {
+    const st = toMin(l.t), en = st + LESSON_MIN;
+    const state = isToday ? (en <= nowMin ? "past" : st <= nowMin ? "now" : "") : (selDay < today ? "past" : "");
+    const people = cur.type === "group"
+      ? l.p.map(p => `<a data-p="${esc(p)}">${esc(S.lecturers[p])}</a>`).join(", ")
+      : l.groups.map(n => `<a data-g="${esc(n)}">${esc(n)}</a>`).join(", ");
+    const meta = [l.k && `<span class="tp ${esc(l.k)}">${TYPE[l.k]}</span>`, people, l.r && esc(l.r)].filter(Boolean).join(" · ");
+    const nt = openTasks(l.s);
+    return `<div class="row ${state}${isHidden(l) ? " hid" : ""}">
+      <div class="tm"><b>${startT(l.t)}</b><span>${endT(l.t)}</span></div>
+      <div class="bd"><div class="s">${esc(nameOf(l.s))}</div>${meta ? `<div class="m">${meta}</div>` : ""}
+      ${tasksHTML(l.s)}</div>
+      <button class="edit${nt ? " has" : ""}" data-li="${li}" aria-label="Заметки и настройки: ${esc(nameOf(l.s))}" title="Заметки, переименовать, скрыть">${I.pencil}</button></div>`;
+  }).join("") : `<div class="empty"><b>${inSemester(selDay) ? "Пар нет" : "Вне семестра"}</b>${inSemester(selDay) ? "Свободный день" : "В этот день занятий по расписанию нет"}</div>`;
+
+  $("app").innerHTML = `<div class="layout">
+    <div class="a-head${searchOpen ? " searching" : ""}"><div id="srchSlot"></div><header class="top">
+      <button class="who" id="openSearch" aria-label="Сменить группу или преподавателя"><span class="name">${esc(cur.title)}</span>${I.chevron}</button>
+      <span class="tools">${themeBtn()}<button class="icon-btn" id="openSearch2" aria-label="Поиск">${I.search}</button></span>
+    </header>
+    <div class="sub">${fmtDate(now)} · <b>${weekName(weekCode(now))} неделя</b>${cur.type === "lecturer" ? " · преподаватель" : ""}</div></div>
+    <div class="a-hero">${heroHTML()}</div>
+    <div class="a-week"><nav class="weeknav" aria-label="Неделя">
+      <span class="t">${weekLabel} · ${weekName(wc)}</span>
+      <span class="arrows">
+        <button class="arrow" data-week="-1" aria-label="Предыдущая неделя">${I.left}</button>
+        <button class="arrow" data-week="1" aria-label="Следующая неделя">${I.right}</button>
+      </span>
+    </nav>
+    <div class="days">${days}</div>
+    <section class="list" aria-label="${fmtDate(selDay)}">${list}</section></div>
+    <div class="actions a-actions">
+      <button class="btn btn-main" id="calBtn">${I.cal} Подписаться в календаре</button>
+      ${isStandalone() ? "" : `<button class="btn btn-sec" id="installBtn">${I.phone} Добавить на экран «Домой»</button>`}
+    </div></div>
+    <div class="extras">
+      ${hidList().length ? `<button class="link" id="toggleHidden">${showHidden ? "Не показывать скрытые пары" : `Скрытые пары (${hidList().length}) — показать`}</button>` : ""}
+      <button class="link" id="exportNotes">Сохранить заметки в файл</button>
+      <button class="link" id="importNotes">Загрузить из файла</button>
+    </div>
+    ${footerHTML()}`;
+}
+
+function renderWelcome() {
+  $("app").innerHTML = `<div style="max-width:520px;width:100%;margin:0 auto" class="${searchOpen ? "searching" : ""}">
+    <div id="srchSlot"></div><header class="top"><span class="who"><span class="name">Расписание</span></span><span class="tools">${themeBtn()}</span></header>
+    <div class="sub">${fmtDate(new Date())} · <b>${weekName(weekCode(new Date()))} неделя</b></div>
+    <section class="hero">
+      <div class="eyebrow">Начнём</div>
+      <h2>Найди свою группу</h2>
+      <div class="who2">Или преподавателя — по фамилии. Сайт запомнит выбор.</div>
+      <div class="actions"><button class="btn btn-main" id="openSearch">${I.search} Найти группу</button></div>
+    </section>
+    ${isStandalone() ? "" : `<div class="actions"><button class="btn btn-sec" id="installBtn">${I.phone} Добавить на экран «Домой»</button></div>`}
+    ${footerHTML()}</div>`;
+}
+
+const footerHTML = () => `<footer>Неофициальный студенческий проект, не связан с администрацией вуза.<br>
+  Данные с voenmeh.ru · ${esc(S.title.toLowerCase())} · обновлено ${esc(S.updated)}<br>
+  <a href="privacy.html">Политика конфиденциальности</a></footer>`;
+
+$("app").addEventListener("change", e => {
+  const c = e.target; if (!c.dataset?.nid) return;
+  const n = (notes[c.dataset.subj] || []).find(x => x.id === c.dataset.nid); if (!n) return;
+  n.done = c.checked; save("notes", notes); goal("note_done");
+  setTimeout(render, 350);   // даём увидеть галочку, потом задача уходит из списка
+});
+$("app").addEventListener("click", e => {
+  const t = e.target.closest("button, a[data-p], a[data-g]"); if (!t) return;
+  if (t.dataset.li) return openLesson(window._items[+t.dataset.li]);
+  if (t.id === "toggleHidden") { showHidden = !showHidden; return render(); }
+  if (t.id === "exportNotes") return exportNotes();
+  if (t.id === "importNotes") return importNotes();
+  if (t.id === "themeBtn") return toggleTheme();
+  if (t.id === "openSearch" || t.id === "openSearch2") return openSearch();
+  if (t.id === "calBtn") return openCalendarSheet();
+  if (t.id === "installBtn") return openInstall();
+  if (t.dataset.day) { selDay = addDays(addDays(selDay, -dayIdx(selDay)), +t.dataset.day); return render(); }
+  if (t.dataset.week) { selDay = addDays(selDay, 7 * +t.dataset.week); return render(); }
+  if (t.dataset.p) return select("lecturer", t.dataset.p);
+  if (t.dataset.g) return select("group", t.dataset.g);
+});
+
+// ============================================================ поиск
+const norm = s => s.toLowerCase().replace(/ё/g, "е").replace(/[\s.]+/g, "");
+const lat2cyr = s => s.replace(/[a-z]/g, c => ({ a:"а", b:"б", c:"с", e:"е", h:"н", k:"к", m:"м", o:"о", p:"р", t:"т", x:"х", y:"у" }[c] || c));
+const index = [
+  ...S.groups.map(g => ({ type: "group", id: g.n, label: g.n, note: "группа", key: norm(g.n) })),
+  ...[...lecturerLessons.keys()].map(id => ({ type: "lecturer", id, label: S.lecturers[id], note: "преподаватель", key: norm(S.lecturers[id]) }))
+    .sort((a, b) => a.label.localeCompare(b.label, "ru")),
+];
+let found = [], active = 0;
+
+let searchOpen = false;
+const searchEl = $("search");
+function placeSearch() {      // поиск живёт в шапке: после каждой перерисовки возвращаем его на место
+  const slot = $("srchSlot");
+  if (slot && searchEl.parentNode !== slot) slot.appendChild(searchEl);
+  searchEl.classList.toggle("open", searchOpen);
+  slot?.parentNode.classList.toggle("searching", searchOpen);
+}
+function openSearch() { searchOpen = true; $("q").value = ""; placeSearch(); renderResults(); $("q").focus(); }
+function closeSearch() { if (!searchOpen) return; searchOpen = false; placeSearch(); }
+document.addEventListener("click", e => {
+  if (searchOpen && !e.target.closest("#search, #openSearch, #openSearch2")) closeSearch();
+});
+
+function renderResults() {
+  const s = norm($("q").value), s2 = lat2cyr(s);
+  if (!s) {
+    const rec = recent.map(r => index.find(x => x.type === r.type && x.id === r.id)).filter(Boolean);
+    found = rec; active = -1;
+    $("results").innerHTML = (rec.length ? `<h3>Недавние</h3>` + rec.map(resHTML).join("") : "") +
+      `<p class="hint">Введи номер группы, например <b>09С33</b>, или фамилию преподавателя. Можно латиницей.</p>`;
+    return;
+  }
+  const starts = x => x.key.startsWith(s) || x.key.startsWith(s2);
+  const has = x => x.key.includes(s) || x.key.includes(s2);
+  found = index.filter(starts).concat(index.filter(x => !starts(x) && has(x))).slice(0, 30);
+  active = found.length ? 0 : -1;
+  $("results").innerHTML = found.length ? found.map(resHTML).join("") : `<p class="hint">Ничего не нашлось. Проверь номер группы.</p>`;
+}
+const resHTML = (x, i) => `<button class="res${i === active ? " active" : ""}" data-i="${found.indexOf(x)}"><span class="n">${esc(x.label)}</span><span class="k">${x.note}</span></button>`;
+
+$("q").addEventListener("input", renderResults);
+$("q").addEventListener("keydown", e => {
+  if (e.key === "Escape") return closeSearch();
+  if (!found.length) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault(); active = (active + (e.key === "ArrowDown" ? 1 : -1) + found.length) % found.length;
+    [...$("results").querySelectorAll(".res")].forEach((b, i) => b.classList.toggle("active", i === active));
+  } else if (e.key === "Enter") { const x = found[Math.max(active, 0)]; select(x.type, x.id); }
+});
+$("results").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) { const x = found[+b.dataset.i]; select(x.type, x.id); } });
+$("cancelSearch").addEventListener("click", closeSearch);
+
+// ============================================================ нижнее окно
+function openSheet(html, label) { $("sheet").innerHTML = html; $("sheet").setAttribute("aria-label", label); $("sheetBg").classList.add("open"); }
+function closeSheet() { $("sheetBg").classList.remove("open"); sheetLesson = null; }
+$("sheetBg").addEventListener("click", e => { if (e.target === $("sheetBg") || e.target.closest("[data-close]")) closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+const closeBtn = `<button class="btn btn-sec" data-close>Закрыть</button>`;
+
+// ============================================================ окно предмета: заметки и скрытие
+let sheetLesson = null;
+const fmtShort = iso => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+
+function openLesson(l) {
+  sheetLesson = l;
+  const list = (notes[l.s] || []).slice().sort((a, b) => a.done - b.done || b.at.localeCompare(a.at));
+  const who = cur.type === "group" ? l.p.map(p => S.lecturers[p]).join(", ") : "Группы: " + l.groups.join(", ");
+  const slotHidden = hidList().includes(slotKey(l)), subjHidden = hidList().includes("s:" + l.s);
+  const slotText = `${DOW_SHORT[l.d].toLowerCase()}, ${startT(l.t)}, ${weekName(l.w)}`;
+  const custom = renames[l.s];
+  openSheet(`<h4>${esc(nameOf(l.s))}</h4>
+    <div class="meta2">${[TYPE[l.k], `${DOW_SHORT[l.d]} ${startT(l.t)}–${endT(l.t)}`, l.r && "ауд. " + esc(l.r), esc(who)].filter(Boolean).join(" · ")}</div>
+    <div class="sec">Заметки по предмету</div>
+    ${list.length ? list.map(n => `<div class="task${n.done ? " done" : ""}">
+        <input type="checkbox" id="n${n.id}" data-note="${n.id}" ${n.done ? "checked" : ""}>
+        <label for="n${n.id}"><span>${esc(n.text)}</span><small>${fmtShort(n.at)}</small></label>
+        <button class="x" data-act="note-del" data-id="${n.id}" aria-label="Удалить заметку">${I.x}</button></div>`).join("")
+      : `<div class="noteempty">Пока пусто. Запиши, что задали, что сдать или что взять с собой — заметка будет видна на всех парах этого предмета, пока не отметишь её.</div>`}
+    <form class="add" id="noteForm"><input id="noteInput" placeholder="Например: сдать РГР, решить №5–7" maxlength="300" aria-label="Новая заметка">
+      <button class="btn btn-main" type="submit">Добавить</button></form>
+    <div class="sec">Своё название предмета</div>
+    <form class="rename" id="renameForm"><input id="renameInput" value="${esc(custom || "")}" placeholder="${esc(l.s)}" maxlength="80" aria-label="Своё название предмета">
+      <button class="btn btn-main" type="submit">Сохранить</button></form>
+    <div class="hint2">В расписании вуза: «${esc(l.s)}».${custom ? ` <button class="link" data-act="rename-reset">Вернуть исходное</button>` : " Например, расшифруй сокращение."}</div>
+    <div class="sec">Не хожу на эту пару</div>
+    ${subjHidden
+      ? `<button class="opt" data-act="unhide-subj"><b>Вернуть все пары предмета</b><small>Сейчас «${esc(nameOf(l.s))}» скрыт целиком</small></button>`
+      : slotHidden
+        ? `<button class="opt" data-act="unhide-slot"><b>Вернуть эту пару</b><small>${slotText}</small></button>`
+        : `<button class="opt" data-act="hide-slot"><b>Скрыть эту пару</b><small>Только ${slotText} — например, если это не твоя подгруппа</small></button>
+           <button class="opt" data-act="hide-subj"><b>Скрыть предмет целиком</b><small>Все пары «${esc(nameOf(l.s))}» пропадут из расписания</small></button>`}
+    <p style="margin-top:4px">Заметки, названия и скрытые пары хранятся только на этом устройстве. Подписку на календарь они не меняют.</p>
+    <button class="btn btn-sec" data-close>Закрыть</button>`, nameOf(l.s));
+}
+
+function saveNotes() { save("notes", notes); render(); if (sheetLesson) openLesson(sheetLesson); }
+function setHidden(list) { hidden[hidKey()] = list; if (!list.length) delete hidden[hidKey()]; save("hidden", hidden); }
+
+$("sheet").addEventListener("submit", e => {
+  if (e.target.id === "renameForm") {
+    e.preventDefault();
+    const v = $("renameInput").value.trim();
+    if (v && v !== sheetLesson.s) renames[sheetLesson.s] = v; else delete renames[sheetLesson.s];
+    save("renames", renames); goal("rename"); render(); return openLesson(sheetLesson);
+  }
+  if (e.target.id !== "noteForm") return;
+  e.preventDefault();
+  const text = $("noteInput").value.trim(); if (!text) return;
+  const subj = sheetLesson.s;
+  (notes[subj] ||= []).push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, done: false, at: new Date().toISOString() });
+  goal("note_add"); saveNotes(); setTimeout(() => $("noteInput")?.focus(), 0);
+});
+$("sheet").addEventListener("change", e => {
+  const id = e.target.dataset?.note; if (!id) return;
+  const n = (notes[sheetLesson.s] || []).find(x => x.id === id); if (!n) return;
+  n.done = e.target.checked; saveNotes();
+});
+function lessonAction(act, b) {
+  const l = sheetLesson; if (!l) return;
+  if (act === "rename-reset") { delete renames[l.s]; save("renames", renames); render(); return openLesson(l); }
+  if (act === "note-del") { notes[l.s] = (notes[l.s] || []).filter(n => n.id !== b.dataset.id); if (!notes[l.s].length) delete notes[l.s]; return saveNotes(); }
+  const list = hidList();
+  if (act === "hide-slot") setHidden([...list, slotKey(l)]);
+  if (act === "hide-subj") setHidden([...list.filter(k => !k.endsWith("|" + l.s)), "s:" + l.s]);
+  if (act === "unhide-slot") setHidden(list.filter(k => k !== slotKey(l)));
+  if (act === "unhide-subj") setHidden(list.filter(k => k !== "s:" + l.s && !k.endsWith("|" + l.s)));
+  goal(act); closeSheet(); render();
+}
+
+// резервная копия заметок: файл .json
+function exportNotes() {
+  const blob = new Blob([JSON.stringify({ app: "voenmeh-schedule", v: 1, saved: new Date().toISOString(), notes, hidden, renames }, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `zametki-raspisanie-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  goal("notes_export");
+}
+function importNotes() {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = async () => {
+    try {
+      const data = JSON.parse(await inp.files[0].text());
+      if (data.app !== "voenmeh-schedule") throw new Error("not ours");
+      for (const [subj, list] of Object.entries(data.notes || {})) {
+        const have = new Set((notes[subj] || []).map(n => n.id));
+        notes[subj] = [...(notes[subj] || []), ...list.filter(n => !have.has(n.id))];
+      }
+      for (const [k, list] of Object.entries(data.hidden || {})) hidden[k] = [...new Set([...(hidden[k] || []), ...list])];
+      Object.assign(renames, data.renames || {});
+      save("notes", notes); save("hidden", hidden); save("renames", renames); render(); goal("notes_import");
+      alert("Заметки загружены");
+    } catch (_) { alert("Не получилось прочитать файл. Нужен файл, сохранённый кнопкой «Сохранить заметки в файл»."); }
+  };
+  inp.click();
+}
+
+// ============================================================ календарь
+const isOnline = location.protocol === "http:" || location.protocol === "https:";
+const icsURL = () => new URL(`ics/${cur.type === "group" ? "g" : "p"}/${cur.icsId}.ics`, location.href.split("#")[0]).href;
+
+function openCalendarSheet() {
+  let opts = "";
+  if (isOnline) {
+    const webcal = icsURL().replace(/^https?:/, "webcal:");
+    opts = `<a class="opt" data-app="apple" href="${esc(webcal)}"><b>iPhone, iPad, Mac</b><small>Подписка в Apple Календаре — обновляется сама</small></a>
+      <a class="opt" data-app="google" target="_blank" rel="noopener" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}"><b>Google Календарь (Android)</b><small>Подписка — обновляется сама. Откроется сайт Google Календаря</small></a>
+      <button class="opt" data-act="copy"><b>Скопировать ссылку на календарь</b><small>Для Outlook, Яндекс Календаря и других</small></button>`;
+  }
+  opts += `<button class="opt" data-act="file"><b>Скачать файл .ics</b><small>Разовый импорт — изменения сами не подтянутся</small></button>`;
+  openSheet(`<h4>${esc(cur.title)} в календарь</h4>
+    <p>${isOnline ? "Лучше подписаться: если вуз поменяет расписание, календарь обновится сам." : "Подписка заработает, когда сайт будет в интернете. Пока можно скачать файл."}</p>
+    ${opts}${closeBtn}`, "Добавить в календарь");
+}
+$("sheet").addEventListener("click", async e => {
+  const link = e.target.closest("a.opt"); if (link) { goal("calendar_subscribe", { app: link.dataset.app }); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  if (/^(note-|hide-|unhide-|rename-)/.test(b.dataset.act)) return lessonAction(b.dataset.act, b);
+  goal("calendar_" + b.dataset.act);
+  if (b.dataset.act === "file") { downloadICS(); closeSheet(); }
+  if (b.dataset.act === "copy") {
+    try { await navigator.clipboard.writeText(icsURL()); b.querySelector("b").textContent = "Ссылка скопирована"; }
+    catch (_) { prompt("Ссылка на календарь:", icsURL()); }
+  }
+  if (b.dataset.act === "install" && deferredPrompt) {
+    deferredPrompt.prompt(); const r = await deferredPrompt.userChoice; deferredPrompt = null;
+    goal("install_" + r.outcome); closeSheet();
+  }
+});
+
+// .ics для скачивания (то же, что делает update_schedule.py)
+const pad = n => String(n).padStart(2, "0");
+const stamp = d => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+const icsEsc = s => String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+function fold(line) { const enc = new TextEncoder(); let out = [], c = "", n = 0;
+  for (const ch of line) { const b = enc.encode(ch).length; if (n + b > 74) { out.push(c); c = " "; n = 1; } c += ch; n += b; }
+  out.push(c); return out.join("\r\n"); }
+function buildICS() {
+  const until = stamp(new Date(Date.UTC(ey, em - 1, ed, 20, 59))), now = stamp(new Date());
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//voenmeh-schedule//RU", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+             `X-WR-CALNAME:Расписание ${cur.title}`, "X-WR-TIMEZONE:Europe/Moscow"];
+  for (const l of cur.lessons) {
+    let first = addDays(monday0, (l.w - 1) * 7 + l.d);
+    while (first < semStart) first = addDays(first, 7 * S.weekCount);
+    const [h, m] = l.t.split(":").map(Number);
+    const st = new Date(Date.UTC(first.getFullYear(), first.getMonth(), first.getDate(), h - 3, m)); // Москва = UTC+3
+    const en = new Date(st.getTime() + LESSON_MIN * 60000);
+    const who = cur.type === "group" ? l.p.map(p => S.lecturers[p]).join(", ") : "Группы: " + l.groups.join(", ");
+    L.push("BEGIN:VEVENT", `UID:${icsEsc([cur.type, cur.id, l.d, l.w, l.t, l.s].join("-"))}@voenmeh-schedule`,
+      `DTSTAMP:${now}`, `DTSTART:${stamp(st)}`, `DTEND:${stamp(en)}`, `RRULE:FREQ=WEEKLY;INTERVAL=${S.weekCount};UNTIL=${until}`,
+      `SUMMARY:${icsEsc(nameOf(l.s) + (l.k ? ` (${l.k})` : ""))}`);
+    if (l.r) L.push(`LOCATION:${icsEsc("Ауд. " + l.r)}`);
+    L.push(`DESCRIPTION:${icsEsc([TYPE[l.k], who].filter(Boolean).join("\n"))}`, "END:VEVENT");
+  }
+  L.push("END:VCALENDAR");
+  return L.map(fold).join("\r\n") + "\r\n";
+}
+function downloadICS() {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([buildICS()], { type: "text/calendar;charset=utf-8" }));
+  a.download = `raspisanie-${cur.title.replace(/[^\wА-Яа-яЁё-]+/g, "_")}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// ============================================================ установка (PWA)
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener("appinstalled", () => { goal("installed"); render(); });
+function isStandalone() { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; }
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isIOSSafari = isIOS && !/CriOS|FxiOS|YaBrowser|EdgiOS/.test(ua);
+
+function openInstall() {
+  goal("install_open");
+  if (deferredPrompt) {   // Android / Chrome / Edge: системное окно установки
+    openSheet(`<h4>Установить приложение</h4>
+      <p>Иконка появится на главном экране. Расписание будет открываться одним касанием и работать без интернета.</p>
+      <button class="btn btn-main" data-act="install" style="width:100%">${I.phone} Установить</button>
+      <div style="height:8px"></div>${closeBtn}`, "Установить приложение");
+    return;
+  }
+  let body;
+  if (!isOnline) {
+    body = `<p>Установка заработает, когда сайт будет опубликован в интернете. Сейчас он открыт файлом с компьютера.</p>`;
+  } else if (isIOSSafari) {
+    body = `<p>Пара касаний — и расписание будет открываться как приложение, даже без интернета.</p>
+      <ol class="steps">
+        <li><span>Нажми ${I.share} <b>«Поделиться»</b> внизу экрана Safari</span></li>
+        <li><span>Пролистай вниз и выбери ${I.plusbox} <b>«На экран «Домой»»</b></span></li>
+        <li><span>Нажми <b>«Добавить»</b> в правом верхнем углу</span></li>
+      </ol>`;
+  } else if (isIOS) {
+    body = `<p>На iPhone приложение устанавливается только из Safari.</p>
+      <ol class="steps"><li><span>Открой этот сайт в <b>Safari</b></span></li>
+        <li><span>Нажми ${I.share} <b>«Поделиться»</b> → <b>«На экран «Домой»»</b></span></li></ol>`;
+  } else {
+    body = `<p>Расписание будет открываться как приложение, даже без интернета.</p>
+      <ol class="steps">
+        <li><span>Открой меню браузера ${I.dots} (обычно справа вверху)</span></li>
+        <li><span>Выбери <b>«Установить приложение»</b> или <b>«Добавить на главный экран»</b></span></li>
+        <li><span>Подтверди установку</span></li>
+      </ol>`;
+  }
+  openSheet(`<h4>Добавить на экран «Домой»</h4>${body}${closeBtn}`, "Добавить на экран «Домой»");
+}
+
+themeColorSync();
+if ("serviceWorker" in navigator && isOnline) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// ============================================================ старт
+function fromHash() {
+  const m = location.hash.match(/^#([gp])=(.+)$/);
+  return m ? select(m[1] === "g" ? "group" : "lecturer", decodeURIComponent(m[2])) : false;
+}
+window.addEventListener("hashchange", fromHash);
+if (!fromHash()) {
+  const last = recent[0];
+  if (!(last && select(last.type, last.id))) render();
+}
+setInterval(() => { if (!$("sheetBg").classList.contains("open") && !searchOpen) render(); }, 30000);
+</script>
+</body>
+</html>
