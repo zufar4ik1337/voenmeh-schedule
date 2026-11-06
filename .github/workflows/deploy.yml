@@ -36,9 +36,13 @@ jobs:
       # и собирает data/schedule.js и календари ics/
       - run: python update_schedule.py
 
+      # имя с номером попытки — чтобы повторный запуск (Re-run) не ломался
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+          name: site-${{ github.run_attempt }}
 
       - id: deploy
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: site-${{ github.run_attempt }}
