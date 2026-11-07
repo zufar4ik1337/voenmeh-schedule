@@ -728,7 +728,9 @@ function buildICS() {
       `DTSTAMP:${now}`, `DTSTART:${stamp(st)}`, `DTEND:${stamp(en)}`, `RRULE:FREQ=WEEKLY;INTERVAL=${S.weekCount};UNTIL=${until}`,
       `SUMMARY:${icsEsc(nameOf(l.s) + (l.k ? ` (${l.k})` : ""))}`);
     if (l.r) L.push(`LOCATION:${icsEsc("Ауд. " + l.r)}`);
-    L.push(`DESCRIPTION:${icsEsc([TYPE[l.k], who].filter(Boolean).join("\n"))}`, "END:VEVENT");
+    const link = S.siteUrl ? `${S.siteUrl}?utm_source=calendar&utm_medium=ics#${cur.type === "group" ? "g" : "p"}=${encodeURIComponent(cur.id)}` : "";
+    if (link) L.push(`URL:${link}`);
+    L.push(`DESCRIPTION:${icsEsc([TYPE[l.k], who].filter(Boolean).join("\n") + (link ? `\n\nЗадачи и заметки по предмету — на сайте: ${link}` : ""))}`, "END:VEVENT");
   }
   L.push("END:VCALENDAR");
   return L.map(fold).join("\r\n") + "\r\n";

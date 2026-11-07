@@ -18,6 +18,7 @@
 
 import json
 import sys
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
@@ -27,6 +28,7 @@ from pathlib import Path
 
 LESSON_MIN = 90               # длительность пары, минут
 SEMESTER_END = "2026-12-27"   # последний день занятий (в XML его нет)
+SITE_URL = "https://zufar4ik1337.github.io/voenmeh-schedule/"   # адрес сайта — для ссылок из календаря
 
 XML_URL = ("https://voenmeh.ru/wp-content/themes/Avada-Child-Theme-Voenmeh/"
            "_voenmeh_grafics/TimetableGroup50.xml")
@@ -108,6 +110,7 @@ def parse(text: str) -> dict:
         "weekCount": int(root.find("Weeks").get("WeekCount")),
         "lessonMin": LESSON_MIN,
         "semesterEnd": SEMESTER_END,
+        "siteUrl": SITE_URL,
         "updated": datetime.now(MSK).strftime("%d.%m.%Y %H:%M"),
         "groups": groups,
         "lecturers": lecturers,
@@ -148,7 +151,12 @@ def utc(d: date, h: int, m: int) -> str:
     return datetime(d.year, d.month, d.day, h, m, tzinfo=MSK).astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def build_ics(title: str, uid_prefix: str, lessons: list, data: dict, lecturers: dict) -> str:
+def site_link(kind: str, key: str) -> str:
+    """Ссылка из календаря обратно на сайт (utm — чтобы Метрика видела переходы из календаря)."""
+    return f"{SITE_URL}?utm_source=calendar&utm_medium=ics#{kind}={urllib.parse.quote(key)}"
+
+
+def build_ics(title: str, uid_prefix: str, lessons: list, data: dict, lecturers: dict, link: str = "") -> str:
     sem_start = date.fromisoformat(data["start"])
     monday0 = sem_start - timedelta(days=sem_start.weekday())
     until = utc(date.fromisoformat(SEMESTER_END), 23, 59)
@@ -179,6 +187,9 @@ def build_ics(title: str, uid_prefix: str, lessons: list, data: dict, lecturers:
         if l["r"]:
             L.append(f"LOCATION:{ics_esc('Ауд. ' + l['r'])}")
         desc = "\n".join(x for x in [TYPES.get(l["k"], ""), who] if x)
+        if link:
+            desc += f"\n\nЗадачи и заметки по предмету — на сайте: {link}"
+            L.append(f"URL:{link}")
         if desc:
             L.append(f"DESCRIPTION:{ics_esc(desc)}")
         L.append("END:VEVENT")
@@ -200,11 +211,12 @@ def main():
     (OUT_ICS / "p").mkdir(parents=True, exist_ok=True)
     for g in data["groups"]:
         (OUT_ICS / "g" / f"{g['id']}.ics").write_text(
-            build_ics(g["n"], f"g{g['id']}", g["l"], data, data["lecturers"]), encoding="utf-8", newline="")
+            build_ics(g["n"], f"g{g['id']}", g["l"], data, data["lecturers"], site_link("g", g["n"])),
+            encoding="utf-8", newline="")
     by_lecturer = lecturer_lessons(data)
     for pid, lessons in by_lecturer.items():
         (OUT_ICS / "p" / f"{pid}.ics").write_text(
-            build_ics(data["lecturers"][pid], f"p{pid}", lessons, data, data["lecturers"]),
+            build_ics(data["lecturers"][pid], f"p{pid}", lessons, data, data["lecturers"], site_link("p", pid)),
             encoding="utf-8", newline="")
 
     print(f"{data['title']}: групп {len(data['groups'])}, преподавателей {len(by_lecturer)}")
